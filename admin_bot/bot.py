@@ -102,6 +102,18 @@ async def perform_index(chat_id, status_msg):
     count = 0
     skipped = 0
     try:
+        # Check chat type first
+        chat = await app.get_chat(chat_id)
+        if chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
+            await status_msg.edit_text(
+                "⚠️ **Group Indexing Restricted**\n\n"
+                "Telegram does not allow bots to read the history of **Groups**. "
+                "However, you can still index files by:\n"
+                "1. **Forwarding** files to me (individually or in batches).\n"
+                "2. Posting **new** files in the group (I'll index them automatically)."
+            )
+            return
+
         async for m in app.get_chat_history(chat_id):
             file = m.document or m.video
             if not file:
