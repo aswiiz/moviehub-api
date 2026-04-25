@@ -11,12 +11,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
+API_ID_ENV = os.getenv("API_ID", "").strip()
+API_ID = int(API_ID_ENV) if API_ID_ENV else 0
+API_HASH = os.getenv("API_HASH", "").strip()
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+ADMIN_ID_ENV = os.getenv("ADMIN_ID")
+ADMIN_ID = int(ADMIN_ID_ENV) if ADMIN_ID_ENV else 0
 MONGO_URI = os.getenv("MONGO_URI")
 OMDB_API_KEY = os.getenv("OMDB_API_KEY")
+
+if not API_ID or not API_HASH or not BOT_TOKEN:
+    print("❌ ERROR: Missing critical environment variables (API_ID, API_HASH, BOT_TOKEN). Check your Render settings!")
 
 # Database setup
 client = MongoClient(MONGO_URI)

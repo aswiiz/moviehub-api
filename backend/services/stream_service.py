@@ -7,9 +7,17 @@ from typing import AsyncGenerator
 
 class StreamService:
     def __init__(self):
-        self.api_id = int(os.getenv("API_ID"))
-        self.api_hash = os.getenv("API_HASH")
-        self.bot_token = os.getenv("BOT_TOKEN")
+        self.api_id = os.getenv("API_ID", "").strip()
+        self.api_hash = os.getenv("API_HASH", "").strip()
+        self.bot_token = os.getenv("BOT_TOKEN", "").strip()
+        
+        if not self.api_id or not self.api_hash or not self.bot_token:
+            # Don't crash immediately on import, but log error
+            print("⚠️ WARNING: API_ID, API_HASH, or BOT_TOKEN is missing! Streaming will not work.")
+            self.api_id = int(self.api_id) if self.api_id else 0
+        else:
+            self.api_id = int(self.api_id)
+
         self.client = Client(
             "stream_session",
             api_id=self.api_id,
