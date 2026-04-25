@@ -8,22 +8,28 @@ class ApiService {
   static const String omdbApiKey = '9547e152';
 
   Future<List<Movie>> searchMovies(String query) async {
-    final response = await http.get(Uri.parse('$baseUrl/search?query=${Uri.encodeComponent(query)}'));
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/search?query=${Uri.encodeComponent(query)}'));
 
-    if (response.statusCode == 200) {
-      List jsonResponse = json.decode(response.body);
-      List<Movie> results = jsonResponse
-          .map((data) => Movie.fromJson(data))
-          .toList();
-      
-      // Fetch posters for each movie using OMDb API
-      for (var movie in results) {
-        movie.posterUrl = await fetchPoster(movie.imdbID);
+      if (response.statusCode == 200) {
+        List jsonResponse = json.decode(response.body);
+        List<Movie> results = jsonResponse
+            .map((data) => Movie.fromJson(data))
+            .toList();
+        
+        // Fetch posters in parallel for speed
+        await Future.wait(results.map((movie) async {
+          movie.posterUrl = await fetchPoster(movie.imdbID);
+        }));
+        
+        return results;
+      } else {
+        print('API Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Search failed: ${response.body}');
       }
-      
-      return results;
-    } else {
-      throw Exception('Search failed: ${response.body}');
+    } catch (e) {
+      print('Search request failed: $e');
+      rethrow;
     }
   }
 

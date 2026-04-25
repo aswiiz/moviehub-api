@@ -4,9 +4,10 @@ from bson import ObjectId
 
 class FileService:
     def __init__(self):
-        # We use our own backend as the streaming server
-        # This matches the FileToLink logic but is built-in
-        self.backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+        # Prefer RENDER_EXTERNAL_URL if set, otherwise use BACKEND_URL, fallback to localhost
+        self.backend_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("BACKEND_URL", "http://localhost:8000")
+        # Ensure no trailing slash
+        self.backend_url = self.backend_url.rstrip('/')
 
     async def get_download_link(self, movie_id: str) -> str:
         # 1. Find the file in the database
