@@ -13,7 +13,7 @@ class Database:
     @classmethod
     async def connect_db(cls):
         cls.client = AsyncIOMotorClient(MONGO_URI)
-        cls.db = cls.client.get_default_database() # This will use the 'moviehub' DB from URI
+        cls.db = cls.client['moviehub'] # Explicitly setting the DB name
 
     @classmethod
     async def close_db(cls):
