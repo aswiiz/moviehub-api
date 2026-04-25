@@ -1,0 +1,10 @@
+from fastapi import APIRouter, Query
+from typing import List
+from models.schemas import MovieSearchResult
+from services.movie_service import movie_service
+
+router = APIRouter()
+
+@router.get("/search", response_model=List[MovieSearchResult])
+async def search_movies(query: str = Query(..., min_length=1)):
+    return await movie_service.search_movies(query)

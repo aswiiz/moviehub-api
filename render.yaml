@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: moviehub-api
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: OMDB_API_KEY
+        sync: false
+      - key: FILE_TO_LINK_API
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.10.0
