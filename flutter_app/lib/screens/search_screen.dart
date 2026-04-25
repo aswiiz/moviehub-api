@@ -111,15 +111,18 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
       body: Stack(
         children: [
-          // Dark Gradient Background
+          // Generative Cinematic Background
           Container(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+              image: DecorationImage(
+                image: AssetImage('assets/images/background.png'),
+                fit: BoxFit.cover,
               ),
             ),
+          ),
+          // Dark Overlay for readability
+          Container(
+            color: Colors.black.withOpacity(0.6),
           ),
           
           SafeArea(
