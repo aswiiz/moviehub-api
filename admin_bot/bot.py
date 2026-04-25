@@ -104,6 +104,22 @@ async def perform_index(chat_id, status_msg):
     try:
         # Check chat type first
         chat = await app.get_chat(chat_id)
+        
+        # Check if bot is admin
+        try:
+            member = await app.get_chat_member(chat_id, "me")
+            is_admin = member.status in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]
+        except:
+            is_admin = False
+
+        if not is_admin and chat.type == enums.ChatType.CHANNEL:
+             await status_msg.edit_text(
+                "❌ **Bot is not an Admin**\n\n"
+                "I need to be an **Administrator** in this channel to read its history. "
+                "Please add me as an admin and try again."
+            )
+             return
+
         if chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
             await status_msg.edit_text(
                 "⚠️ **Group Indexing Restricted**\n\n"
