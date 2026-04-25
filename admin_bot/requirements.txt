@@ -1,4 +1,6 @@
 pyrogram
 tgcrypto
+httpx
 pymongo
 python-dotenv
+motor
