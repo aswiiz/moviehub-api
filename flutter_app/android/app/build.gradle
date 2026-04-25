@@ -33,7 +33,7 @@ android {
 
     defaultConfig {
         applicationId "com.moviehub.app"
-        minSdkVersion 21 // Required for flutter_downloader
+        minSdkVersion flutter.minSdkVersion // Required for flutter_downloader
         targetSdkVersion 33
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName

@@ -9,7 +9,15 @@ services:
         sync: false
       - key: OMDB_API_KEY
         sync: false
-      - key: FILE_TO_LINK_API
+      - key: BOT_TOKEN
         sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: PORT
+        value: 10000
       - key: PYTHON_VERSION
         value: 3.10.0

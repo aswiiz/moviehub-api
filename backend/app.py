@@ -3,7 +3,8 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from routes import search, link
+from routes import search, link, stream
+from services.stream_service import stream_service
 from database.connection import db
 import os
 
@@ -26,12 +27,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_db_client():
     await db.connect_db()
-    logger.info("Connected to MongoDB")
+    await stream_service.start()
+    logger.info("Connected to MongoDB and Telegram Client")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     await db.close_db()
-    logger.info("Closed MongoDB connection")
+    await stream_service.stop()
+    logger.info("Closed MongoDB and Telegram Client")
 
 # Error Handling
 @app.exception_handler(Exception)
@@ -45,6 +48,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Routes
 app.include_router(search.router)
 app.include_router(link.router)
+app.include_router(stream.router)
 
 @app.get("/")
 async def root():

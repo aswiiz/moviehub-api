@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../models/movie_model.dart';
+import '../models/movie.dart';
 
 class MovieCard extends StatelessWidget {
-  final MovieSearchResult movie;
+  final Movie movie;
   final Function(MovieFile) onQualityTap;
   final bool isLoading;
 

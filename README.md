@@ -4,7 +4,31 @@ A full-stack application consisting of a FastAPI backend (converted from Telegra
 
 ## Project Structure
 - `backend/`: FastAPI server with search and link generation services.
+- `admin_bot/`: Telegram bot for admins to index and manage movies.
 - `flutter_app/`: Flutter mobile application with Material UI.
+
+---
+
+## 🤖 Admin Bot Setup (Telegram)
+
+The Admin Bot allows you to index movies directly from Telegram.
+
+### 1. Installation
+```bash
+cd admin_bot
+pip install -r requirements.txt
+```
+
+### 2. Running the Bot
+```bash
+python bot.py
+```
+
+### 3. Commands
+- `/add [imdbID]`: Prompt to upload a file for a specific movie.
+- `/list`: Show all indexed movies and their qualities.
+- `/delete [imdbID]`: Remove a movie from the database.
+- **File Upload**: Send any video/document file to the bot. It will extract quality and size and index it under the movie.
 
 ---
 

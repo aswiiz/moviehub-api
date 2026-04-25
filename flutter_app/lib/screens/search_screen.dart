@@ -1,8 +1,10 @@
-import 'dart:io';
+import 'dart:io' show Directory;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/movie.dart';
 import '../services/api_service.dart';
 import '../widgets/movie_card.dart';
@@ -51,14 +53,24 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _downloadMovie(MovieFile file) async {
     try {
+      _showMessage("Fetching download link...");
+      final url = await _apiService.getDownloadLink(file.movieId);
+
+      if (kIsWeb) {
+        final uri = Uri.parse(url);
+        if (await canalLaunch(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          _showMessage("Could not launch $url");
+        }
+        return;
+      }
+
       var status = await Permission.storage.request();
       if (!status.isGranted) {
         _showMessage("Storage permission is required");
         return;
       }
-
-      _showMessage("Fetching download link...");
-      final url = await _apiService.getDownloadLink(file.movieId);
 
       final directory = await getExternalStorageDirectory();
       final downloadsDir = Directory('${directory!.path}/Downloads');
@@ -66,7 +78,7 @@ class _SearchScreenState extends State<SearchScreen> {
         await downloadsDir.create(recursive: true);
       }
 
-      final taskId = await FlutterDownloader.enqueue(
+      await FlutterDownloader.enqueue(
         url: url,
         savedDir: downloadsDir.path,
         showNotification: true,
@@ -78,6 +90,11 @@ class _SearchScreenState extends State<SearchScreen> {
     } catch (e) {
       _showMessage("Download failed: $e");
     }
+  }
+
+  // Helper for web launch check (since canLaunch can be tricky on web)
+  Future<bool> canalLaunch(Uri uri) async {
+    return await canLaunchUrl(uri);
   }
 
   @override

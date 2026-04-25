@@ -4,11 +4,11 @@ import '../models/movie.dart';
 
 class ApiService {
   // Update with your local IP
-  static const String baseUrl = 'http://192.168.1.100:8000';
-  static const String omdbApiKey = 'YOUR_OMDB_API_KEY';
+  static const String baseUrl = 'https://moviehub-api-9qb3.onrender.com';
+  static const String omdbApiKey = '9547e152';
 
   Future<List<Movie>> searchMovies(String query) async {
-    final response = await http.get(Uri.parse('$baseUrl/search?query=$query'));
+    final response = await http.get(Uri.parse('$baseUrl/search?query=${Uri.encodeComponent(query)}'));
 
     if (response.statusCode == 200) {
       List jsonResponse = json.decode(response.body);
@@ -31,7 +31,7 @@ class ApiService {
     if (imdbID == 'tt0000000') return null;
     try {
       final response = await http.get(
-          Uri.parse('http://www.omdbapi.com/?i=$imdbID&apikey=$omdbApiKey'));
+          Uri.parse('https://www.omdbapi.com/?i=$imdbID&apikey=$omdbApiKey'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return data['Poster'] != 'N/A' ? data['Poster'] : null;
