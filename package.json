@@ -2,7 +2,7 @@
   "name": "moviehub",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd flutter_app && flutter build web --release",
-    "vercel-build": "cd flutter_app && flutter build web --release"
+    "build": "bash build.sh",
+    "vercel-build": "bash build.sh"
   }
 }
