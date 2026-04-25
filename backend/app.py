@@ -38,7 +38,11 @@ async def startup_db_client():
     await db.connect_db()
     await stream_service.start()
     if admin_bot_app:
+        logger.info("Starting Admin Bot...")
         await admin_bot_app.start()
+        logger.info("Admin Bot started successfully")
+    else:
+        logger.warning("Admin Bot app is None, skipping startup")
     logger.info("Connected to MongoDB, Telegram Streamer, and Admin Bot")
 
 @app.on_event("shutdown")
