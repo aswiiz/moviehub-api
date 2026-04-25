@@ -131,59 +131,64 @@ async def perform_index(chat_id, status_msg):
             return
 
         async for m in app.get_chat_history(chat_id):
-            file = m.document or m.video
-            if not file:
-                continue
+            try:
+                file = m.document or m.video
+                if not file:
+                    continue
+                    
+                filename = file.file_name or "Unknown"
+                if not filename.lower().endswith(('.mkv', '.mp4', '.avi')):
+                    skipped += 1
+                    continue
+                    
+                file_id = file.file_id
+                size = format_size(file.file_size)
+                quality = extract_quality(filename)
+                raw_title = clean_title(filename)
                 
-            filename = file.file_name or "Unknown"
-            if not filename.lower().endswith(('.mkv', '.mp4', '.avi')):
+                # Try to get IMDb ID from caption or title
+                imdb_id = None
+                if m.caption:
+                    match = re.search(r'tt\d{7,8}', m.caption)
+                    if match:
+                        imdb_id = match.group(0)
+                
+                if not imdb_id:
+                    imdb_data = await get_imdb_data(raw_title)
+                    imdb_id = imdb_data.get("imdbID") if imdb_data else "tt0000000"
+                    title = imdb_data.get("Title") if imdb_data else raw_title
+                else:
+                    title = raw_title
+                
+                movie_id = str(uuid.uuid4())[:8]
+                
+                movies_collection.update_one(
+                    {"imdbID": imdb_id},
+                    {
+                        "$set": {"title": title},
+                        "$push": {
+                            "files": {
+                                "quality": quality,
+                                "size": size,
+                                "file_id": file_id,
+                                "movie_id": movie_id
+                            }
+                        }
+                    },
+                    upsert=True
+                )
+                
+                count += 1
+                if count % 20 == 0:
+                    await status_msg.edit_text(
+                        f"🔄 **Indexing `{chat_id}`...**\n"
+                        f"✅ Added: {count}\n"
+                        f"⏩ Skipped: {skipped}"
+                    )
+            except Exception as inner_e:
+                print(f"Error indexing message {m.id}: {inner_e}")
                 skipped += 1
                 continue
-                
-            file_id = file.file_id
-            size = format_size(file.file_size)
-            quality = extract_quality(filename)
-            raw_title = clean_title(filename)
-            
-            # Try to get IMDb ID from caption or title
-            imdb_id = None
-            if m.caption:
-                match = re.search(r'tt\d{7,8}', m.caption)
-                if match:
-                    imdb_id = match.group(0)
-            
-            if not imdb_id:
-                imdb_data = await get_imdb_data(raw_title)
-                imdb_id = imdb_data.get("imdbID") if imdb_data else "tt0000000"
-                title = imdb_data.get("Title") if imdb_data else raw_title
-            else:
-                title = raw_title
-            
-            movie_id = str(uuid.uuid4())[:8]
-            
-            movies_collection.update_one(
-                {"imdbID": imdb_id},
-                {
-                    "$set": {"title": title},
-                    "$push": {
-                        "files": {
-                            "quality": quality,
-                            "size": size,
-                            "file_id": file_id,
-                            "movie_id": movie_id
-                        }
-                    }
-                },
-                upsert=True
-            )
-            
-            count += 1
-            if count % 20 == 0:
-                await status_msg.edit_text(
-                    f"🔄 **Indexing `{chat_id}`...**\n"
-                    f"✅ Added: {count}\n"
-                    f"⏩ Skipped: {skipped}"
-                )
         
         await status_msg.edit_text(
             f"✅ **Indexing Complete!**\n"
@@ -208,15 +213,16 @@ async def handle_incoming_file(client, message: Message):
     # Check if this is a forward from a channel
     if message.forward_from_chat:
         source_chat = message.forward_from_chat
-        try:
-            # Check if bot is admin in the source chat
-            member = await app.get_chat_member(source_chat.id, "me")
-            if member.status in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]:
-                status_msg = await message.reply_text(f"💎 **Bot is Admin in `{source_chat.title}`!**\nIndexing the entire channel/group...")
-                await perform_index(source_chat.id, status_msg)
-                return
-        except Exception:
-            pass # Not an admin or couldn't check
+        if source_chat.type == enums.ChatType.CHANNEL:
+            try:
+                # Check if bot is admin in the source chat
+                member = await app.get_chat_member(source_chat.id, "me")
+                if member.status in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]:
+                    status_msg = await message.reply_text(f"💎 **Bot is Admin in `{source_chat.title}`!**\nIndexing the entire channel...")
+                    await perform_index(source_chat.id, status_msg)
+                    return
+            except Exception:
+                pass # Not an admin or couldn't check
 
     # Standard indexing for single file (or fallback if not admin)
     file = message.document or message.video
