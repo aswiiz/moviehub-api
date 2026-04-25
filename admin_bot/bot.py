@@ -3,7 +3,7 @@ import re
 import uuid
 import asyncio
 import httpx
-from pyrogram import Client, filters
+from pyrogram import Client, filters, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -98,12 +98,9 @@ async def index_channel(client, message):
     if len(message.command) < 2:
         return await message.reply_text("Usage: `/index [channel_username/id]`")
     
-    chat_id = message.command[1]
-    status_msg = await message.reply_text(f"🔍 **Starting indexing for `{chat_id}`...**")
-    
+async def perform_index(chat_id, status_msg):
     count = 0
     skipped = 0
-    
     try:
         async for m in app.get_chat_history(chat_id):
             file = m.document or m.video
@@ -128,16 +125,14 @@ async def index_channel(client, message):
                     imdb_id = match.group(0)
             
             if not imdb_id:
-                # Basic search by title if no IMDb found
                 imdb_data = await get_imdb_data(raw_title)
                 imdb_id = imdb_data.get("imdbID") if imdb_data else "tt0000000"
                 title = imdb_data.get("Title") if imdb_data else raw_title
             else:
-                title = raw_title # We'll refine this if needed
+                title = raw_title
             
             movie_id = str(uuid.uuid4())[:8]
             
-            # Index to DB
             movies_collection.update_one(
                 {"imdbID": imdb_id},
                 {
@@ -164,44 +159,59 @@ async def index_channel(client, message):
         
         await status_msg.edit_text(
             f"✅ **Indexing Complete!**\n"
-            f"📍 Channel: `{chat_id}`\n"
+            f"📍 Chat: `{chat_id}`\n"
             f"📂 Total Added: {count}\n"
             f"⏩ Total Skipped: {skipped}"
         )
-        
     except Exception as e:
         await status_msg.edit_text(f"❌ **Error during indexing:**\n`{str(e)}`")
 
-@app.on_message(filters.command("add") & filters.user(ADMIN_ID))
-async def add_movie_prompt(client, message):
+@app.on_message(filters.command("index") & filters.user(ADMIN_ID))
+async def index_command(client, message):
     if len(message.command) < 2:
-        return await message.reply_text("Usage: /add [imdbID]")
+        return await message.reply_text("Usage: `/index [channel_username/id]`")
     
-    imdb_id = message.command[1]
-    await message.reply_text(f"Now send/forward the movie file for {imdb_id}")
+    chat_id = message.command[1]
+    status_msg = await message.reply_text(f"🔍 **Starting indexing for `{chat_id}`...**")
+    await perform_index(chat_id, status_msg)
 
-@app.on_message(filters.document & filters.user(ADMIN_ID))
-async def handle_document(client, message: Message):
-    # This logic assumes the admin just sent a file
-    # In a more robust version, we'd use a state machine (ConversationHandler)
-    # But for now, we'll try to find if there's a pending add or just extract info
-    
-    filename = message.document.file_name
-    file_id = message.document.file_id
-    size = format_size(message.document.file_size)
+@app.on_message((filters.document | filters.video) & filters.user(ADMIN_ID))
+async def handle_incoming_file(client, message: Message):
+    # Check if this is a forward from a channel
+    if message.forward_from_chat:
+        source_chat = message.forward_from_chat
+        try:
+            # Check if bot is admin in the source chat
+            member = await app.get_chat_member(source_chat.id, "me")
+            if member.status in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]:
+                status_msg = await message.reply_text(f"💎 **Bot is Admin in `{source_chat.title}`!**\nIndexing the entire channel/group...")
+                await perform_index(source_chat.id, status_msg)
+                return
+        except Exception:
+            pass # Not an admin or couldn't check
+
+    # Standard indexing for single file (or fallback if not admin)
+    file = message.document or message.video
+    filename = file.file_name or "Unknown"
+    file_id = file.file_id
+    size = format_size(file.file_size)
     quality = extract_quality(filename)
+    raw_title = clean_title(filename)
     
-    # We'll use the filename as title if no imdbID is provided in the session
-    # For a simple implementation, let's just ask for imdbID or use a dummy
-    # Realistically, the admin would use /add [imdbID] first.
+    imdb_id = None
+    if message.caption:
+        match = re.search(r'tt\d{7,8}', message.caption)
+        if match: imdb_id = match.group(0)
     
-    # Simple logic: check if the caption has the imdbID
-    imdb_id = message.caption if message.caption and message.caption.startswith("tt") else "tt0000000"
-    title = filename.split(".")[0].replace("_", " ").replace("-", " ")
+    if not imdb_id:
+        imdb_data = await get_imdb_data(raw_title)
+        imdb_id = imdb_data.get("imdbID") if imdb_data else "tt0000000"
+        title = imdb_data.get("Title") if imdb_data else raw_title
+    else:
+        title = raw_title
 
     movie_id = str(uuid.uuid4())[:8]
 
-    # Update or Insert
     movies_collection.update_one(
         {"imdbID": imdb_id},
         {
@@ -219,12 +229,12 @@ async def handle_document(client, message: Message):
     )
 
     await message.reply_text(
-        f"✅ File Indexed!\n"
-        f"Title: {title}\n"
-        f"IMDb: {imdb_id}\n"
-        f"Quality: {quality}\n"
-        f"Size: {size}\n"
-        f"Internal ID: {movie_id}"
+        f"✅ **Single File Indexed!**\n\n"
+        f"🎬 **Title:** {title}\n"
+        f"🆔 **IMDb:** `{imdb_id}`\n"
+        f"💎 **Quality:** {quality}\n"
+        f"📦 **Size:** {size}\n"
+        f"🔗 **Internal ID:** `{movie_id}`"
     )
 
 @app.on_message(filters.command("list") & filters.user(ADMIN_ID))
