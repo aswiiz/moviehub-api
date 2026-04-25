@@ -1,8 +1,9 @@
 fastapi
 uvicorn
+pyrogram
+tgcrypto
+pymongo
 motor
 httpx
 pydantic
 python-dotenv
-pyrogram
-tgcrypto

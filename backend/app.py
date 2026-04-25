@@ -7,6 +7,15 @@ from routes import search, link, stream
 from services.stream_service import stream_service
 from database.connection import db
 import os
+import sys
+
+# Add root directory to path to import admin_bot
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+try:
+    from admin_bot.bot import app as admin_bot_app
+except ImportError:
+    admin_bot_app = None
+    print("⚠️ Could not import admin_bot. Ensure it exists in the root directory.")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -28,13 +37,17 @@ app.add_middleware(
 async def startup_db_client():
     await db.connect_db()
     await stream_service.start()
-    logger.info("Connected to MongoDB and Telegram Client")
+    if admin_bot_app:
+        await admin_bot_app.start()
+    logger.info("Connected to MongoDB, Telegram Streamer, and Admin Bot")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     await db.close_db()
     await stream_service.stop()
-    logger.info("Closed MongoDB and Telegram Client")
+    if admin_bot_app:
+        await admin_bot_app.stop()
+    logger.info("Closed MongoDB and Telegram Clients")
 
 # Error Handling
 @app.exception_handler(Exception)
