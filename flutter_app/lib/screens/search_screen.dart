@@ -1,4 +1,6 @@
 import 'dart:io' show Directory;
+import 'dart:ui';
+import 'package:animate_do/animate_do.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
@@ -100,44 +102,106 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text("MovieHub Search"),
+        title: FadeInDown(child: const Text("MovieHub", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.white))),
         centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: "Enter movie name...",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onSubmitted: (_) => _search(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _search,
-                  child: const Text("Search"),
-                ),
-              ],
+          // Dark Gradient Background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+              ),
             ),
           ),
-          if (_isLoading) const LinearProgressIndicator(),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _movies.length,
-              itemBuilder: (context, index) {
-                return MovieCard(
-                  movie: _movies[index],
-                  onQualityTap: _downloadMovie,
-                );
-              },
+          
+          SafeArea(
+            child: Column(
+              children: [
+                // Glassmorphism Search Bar
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: FadeIn(
+                    duration: const Duration(milliseconds: 800),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  style: const TextStyle(color: Colors.white),
+                                  decoration: const InputDecoration(
+                                    hintText: "Search for movies...",
+                                    hintStyle: TextStyle(color: Colors.white70),
+                                    border: InputBorder.none,
+                                  ),
+                                  onSubmitted: (_) => _search(),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.search, color: Colors.white),
+                                onPressed: _isLoading ? null : _search,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                if (_isLoading) 
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: LinearProgressIndicator(backgroundColor: Colors.transparent, color: Colors.blueAccent),
+                  ),
+                  
+                Expanded(
+                  child: _movies.isEmpty && !_isLoading
+                      ? Center(
+                          child: FadeInUp(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.movie_filter, size: 80, color: Colors.white.withOpacity(0.3)),
+                                const SizedBox(height: 16),
+                                Text("Discover your next favorite movie", style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 16)),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(top: 8, bottom: 20),
+                          itemCount: _movies.length,
+                          itemBuilder: (context, index) {
+                            return FadeInUp(
+                              delay: Duration(milliseconds: index * 100),
+                              child: MovieCard(
+                                movie: _movies[index],
+                                onQualityTap: _downloadMovie,
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
           ),
         ],
