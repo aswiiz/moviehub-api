@@ -19,6 +19,8 @@ services:
         sync: false
       - key: PORT
         value: 10000
+      - key: BOT_USERNAME
+        value: greenmoviebot
       - key: PYTHON_VERSION
         value: 3.10.0
 
