@@ -15,6 +15,7 @@ class MovieFile(BaseModel):
 class Movie(BaseModel):
     title: str
     imdbID: str
+    year: Optional[int] = None
     files: List[MovieFile]
 
 class LinkResponse(BaseModel):

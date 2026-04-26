@@ -17,10 +17,8 @@ class ApiService {
             .map((data) => Movie.fromJson(data))
             .toList();
         
-        // Fetch posters in parallel for speed
-        await Future.wait(results.map((movie) async {
-          movie.posterUrl = await fetchPoster(movie.imdbID);
-        }));
+        // Fetch posters and IMDb data in parallel for speed
+        await Future.wait(results.map((movie) => fetchImdbData(movie)));
         
         return results;
       } else {
@@ -33,19 +31,23 @@ class ApiService {
     }
   }
 
-  Future<String?> fetchPoster(String imdbID) async {
-    if (imdbID == 'tt0000000') return null;
+  Future<void> fetchImdbData(Movie movie) async {
+    if (movie.imdbID == 'tt0000000' || movie.imdbID.startsWith('hub_')) return;
     try {
       final response = await http.get(
-          Uri.parse('https://www.omdbapi.com/?i=$imdbID&apikey=$omdbApiKey'));
+          Uri.parse('https://www.omdbapi.com/?i=${movie.imdbID}&apikey=$omdbApiKey'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['Poster'] != 'N/A' ? data['Poster'] : null;
+        if (data['Response'] == 'True') {
+          movie.posterUrl = data['Poster'] != 'N/A' ? data['Poster'] : null;
+          movie.rating = data['imdbRating'] != 'N/A' ? data['imdbRating'] : null;
+          movie.genre = data['Genre'] != 'N/A' ? data['Genre'] : null;
+          movie.plot = data['Plot'] != 'N/A' ? data['Plot'] : null;
+        }
       }
     } catch (e) {
-      print('Poster error: $e');
+      print('IMDb data error: $e');
     }
-    return null;
   }
 
   Future<String> getDownloadLink(String movieId) async {

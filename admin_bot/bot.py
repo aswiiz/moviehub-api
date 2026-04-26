@@ -3,6 +3,7 @@ import re
 import uuid
 import asyncio
 import logging
+import aiohttp
 from datetime import datetime
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, InlineQuery, InlineQueryResultCachedDocument, InlineQueryResultCachedVideo, InlineQueryResultCachedAudio
@@ -26,6 +27,7 @@ ADMIN_ID = int(ADMIN_ID_ENV) if ADMIN_ID_ENV else 0
 MONGO_URI = os.getenv("MONGO_URI")
 INDEX_CHANNELS_STR = os.getenv("INDEX_CHANNELS", "")
 INDEX_CHANNELS = [int(x.strip()) for x in INDEX_CHANNELS_STR.split(",") if x.strip()]
+OMDB_API_KEY = os.getenv("OMDB_API_KEY", "9547e152")
 
 if not API_ID or not API_HASH or not BOT_TOKEN:
     logger.error("Missing critical environment variables (API_ID, API_HASH, BOT_TOKEN).")
@@ -41,6 +43,27 @@ async def init_db():
     logger.info("Database indexes ensured.")
 
 app = Client("admin_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+
+async def get_imdb_data(title, year=None):
+    """Fetch real IMDb ID and Title from OMDb API."""
+    url = f"https://www.omdbapi.com/?t={title}&apikey={OMDB_API_KEY}"
+    if year:
+        url += f"&y={year}"
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("Response") == "True":
+                        return {
+                            "imdbID": data.get("imdbID"),
+                            "title": data.get("Title"),
+                            "year": data.get("Year")
+                        }
+    except Exception as e:
+        logger.error(f"OMDb Error: {e}")
+    return None
 
 def extract_metadata(filename):
     normalized = re.sub(r'[\._\-]', ' ', str(filename))
@@ -67,7 +90,8 @@ def extract_metadata(filename):
     episode = int(se_match.group(2)) if se_match else None
     
     title = normalized
-    title = re.sub(rf'\b{quality}\b', '', title, flags=re.IGNORECASE)
+    if quality != "HD":
+        title = re.sub(rf'\b{quality}\b', '', title, flags=re.IGNORECASE)
     if year:
         title = re.sub(rf'\b{year}\b', '', title)
     if language != "Unknown":
@@ -106,7 +130,7 @@ async def start(client, message):
         "🚀 `/index [channel]` - Index all files from a public/admin channel\n"
         "📥 **Forwarding** - Forward files from a private channel to index them silently!\n"
         "📂 `/list` - List recent indexed movies\n"
-        "🗑 `/delete [imdbID]` - Delete a movie\n"
+        "🗑 `/delete [file_id]` - Delete a movie file\n"
         "⚙️ `/stats` - Show database statistics",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("Channel Indexing", callback_data="help_index")]
@@ -155,16 +179,6 @@ async def perform_index(chat_id, status_msg):
             )
              return
 
-        if chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
-            await status_msg.edit_text(
-                "⚠️ **Group Indexing Restricted**\n\n"
-                "Telegram does not allow bots to read the history of **Groups**. "
-                "However, you can still index files by:\n"
-                "1. **Forwarding** files to me (individually or in batches).\n"
-                "2. Posting **new** files in the group (I'll index them automatically)."
-            )
-            return
-
         async for m in app.get_chat_history(chat_id):
             try:
                 file = m.document or m.video or m.audio
@@ -181,6 +195,11 @@ async def perform_index(chat_id, status_msg):
                 meta = extract_metadata(filename)
                 caption = m.caption.html if m.caption else ""
                 
+                # Try to enrich with real IMDb metadata
+                imdb_data = await get_imdb_data(meta['title'], meta['year'])
+                final_imdb_id = imdb_data['imdbID'] if imdb_data else f"hub_{abs(hash(meta['title'])) % 10000000}"
+                final_title = imdb_data['title'] if imdb_data else meta['title']
+                
                 try:
                     await movies_collection.insert_one({
                         "file_id": file_id,
@@ -188,9 +207,10 @@ async def perform_index(chat_id, status_msg):
                         "file_size": size,
                         "mime_type": getattr(file, 'mime_type', 'application/octet-stream'),
                         "caption": caption,
-                        "title": meta['title'],
+                        "title": final_title,
+                        "imdbID": final_imdb_id,
                         "quality": meta['quality'],
-                        "year": meta['year'],
+                        "year": meta['year'] or (imdb_data['year'] if imdb_data else None),
                         "language": meta['language'],
                         "season": meta['season'],
                         "episode": meta['episode'],
@@ -237,17 +257,6 @@ async def handle_forwarded_message(client, message: Message):
         except Exception:
             pass 
             
-        if not (message.document or message.video or message.audio):
-            await message.reply_text(
-                "❌ **Cannot Index Channel**\n\n"
-                "You forwarded a message from a channel, but I am **not an admin** there.\n"
-                "Telegram's API physically prevents bots from reading the history of private channels they are not admins in.\n\n"
-                "**Solutions:**\n"
-                "1. Add this bot as an Admin to that private channel, then forward a message again.\n"
-                "2. If you can't add the bot as an admin, you must manually select and forward the files (up to 100 at a time) to me."
-            )
-            return
-            
     if message.document or message.video or message.audio:
         await process_single_file(message)
 
@@ -266,6 +275,11 @@ async def process_single_file(message: Message, auto_index=False):
     meta = extract_metadata(filename)
     caption = message.caption.html if message.caption else ""
 
+    # Try to enrich with real IMDb metadata
+    imdb_data = await get_imdb_data(meta['title'], meta['year'])
+    final_imdb_id = imdb_data['imdbID'] if imdb_data else f"hub_{abs(hash(meta['title'])) % 10000000}"
+    final_title = imdb_data['title'] if imdb_data else meta['title']
+
     try:
         await movies_collection.insert_one({
             "file_id": file_id,
@@ -273,9 +287,10 @@ async def process_single_file(message: Message, auto_index=False):
             "file_size": size,
             "mime_type": getattr(file, 'mime_type', 'application/octet-stream'),
             "caption": caption,
-            "title": meta['title'],
+            "title": final_title,
+            "imdbID": final_imdb_id,
             "quality": meta['quality'],
-            "year": meta['year'],
+            "year": meta['year'] or (imdb_data['year'] if imdb_data else None),
             "language": meta['language'],
             "season": meta['season'],
             "episode": meta['episode'],
@@ -292,8 +307,8 @@ async def process_single_file(message: Message, auto_index=False):
         if is_new:
             await message.reply_text(
                 f"✅ **Single File Indexed!**\n\n"
-                f"🎬 **Title:** {meta['title']}\n"
-                f"💎 **Quality:** {meta['quality']}\n"
+                f"🎬 **Title:** {final_title}\n"
+                f"💎 **IMDb:** {final_imdb_id}\n"
                 f"📦 **Size:** {format_size(size)}\n"
             )
         else:
@@ -383,7 +398,6 @@ async def list_movies(client, message):
 
 @app.on_message(filters.command("delete") & filters.user(ADMIN_ID))
 async def delete_movie(client, message):
-    # This might need updating to delete by file_id if we removed imdbID
     if len(message.command) < 2:
         return await message.reply_text("Usage: /delete [file_id]")
     

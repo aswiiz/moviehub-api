@@ -30,6 +30,7 @@ class SearchService:
                 # Otherwise, wrap the flat fields (new schema) into an array.
                 "$project": {
                     "title": 1,
+                    "imdbID": 1,
                     "file_data": {
                         "$cond": {
                             "if": {"$isArray": "$files"},
@@ -45,7 +46,8 @@ class SearchService:
                                 "year": "$year",
                                 "language": "$language",
                                 "season": "$season",
-                                "episode": "$episode"
+                                "episode": "$episode",
+                                "imdbID": "$imdbID"
                             }]
                         }
                     }
@@ -55,6 +57,8 @@ class SearchService:
             {
                 "$group": {
                     "_id": "$title",
+                    "imdbID": { "$first": "$file_data.imdbID" },
+                    "year": { "$first": "$file_data.year" },
                     "files": {
                         "$push": {
                             "quality": "$file_data.quality",
@@ -105,7 +109,8 @@ class SearchService:
 
             results.append(Movie(
                 title=doc.get("_id", "Unknown"),
-                imdbID=f"hub_{abs(hash(doc.get('_id', 'Unknown'))) % 10000000}", 
+                imdbID=doc.get("imdbID") or f"hub_{abs(hash(doc.get('_id', 'Unknown'))) % 10000000}",
+                year=doc.get("year"),
                 files=files
             ))
 
