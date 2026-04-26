@@ -4,21 +4,56 @@ from database.connection import db
 from models.movie import Movie, MovieFile
 
 class SearchService:
+    def format_size(self, size):
+        if not isinstance(size, (int, float)):
+            return str(size)
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size < 1024.0:
+                return f"{size:.1f}{unit}"
+            size /= 1024.0
+        return str(size)
+
     async def search_movies(self, query: str) -> List[Movie]:
-        # Search the 'movies' collection (updated schema)
-        cursor = db.db.movies.find({
-            "title": {"$regex": query, "$options": "i"}
-        }).sort("title", 1) # Sort alphabetically by title
+        # Search the flat 'movies' collection and aggregate by title
+        pipeline = [
+            {
+                "$match": {
+                    "$or": [
+                        {"title": {"$regex": query, "$options": "i"}},
+                        {"file_name": {"$regex": query, "$options": "i"}},
+                        {"caption": {"$regex": query, "$options": "i"}}
+                    ]
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$title",
+                    "files": {
+                        "$push": {
+                            "quality": "$quality",
+                            "size": "$file_size",
+                            "movie_id": "$file_id",
+                            "caption": "$caption",
+                            "file_name": "$file_name"
+                        }
+                    }
+                }
+            },
+            {"$sort": {"_id": 1}}
+        ]
+        
+        cursor = db.db.movies.aggregate(pipeline)
 
         results = []
 
         async for doc in cursor:
-            # The files are already grouped in the document array
             files = [
                 MovieFile(
                     quality=f.get("quality", "Unknown"),
-                    size=f.get("size", "Unknown"),
-                    movie_id=f.get("movie_id")
+                    size=self.format_size(f.get("size", 0)),
+                    movie_id=f.get("movie_id"),
+                    caption=f.get("caption"),
+                    file_name=f.get("file_name")
                 )
                 for f in doc.get("files", [])
             ]
@@ -31,8 +66,8 @@ class SearchService:
             files.sort(key=lambda x: quality_rank(x.quality), reverse=True)
 
             results.append(Movie(
-                title=doc.get("title", "Unknown"),
-                imdbID=doc.get("imdbID", "tt0000000"),
+                title=doc.get("_id", "Unknown"),
+                imdbID=f"hub_{abs(hash(doc.get('_id', 'Unknown'))) % 10000000}", # Generate deterministic ID based on title
                 files=files
             ))
 
