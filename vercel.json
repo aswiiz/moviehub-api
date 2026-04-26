@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "buildCommand": "bash build.sh",
-  "outputDirectory": "flutter_app/build/web",
+  "outputDirectory": "frontend",
   "framework": null
 }
