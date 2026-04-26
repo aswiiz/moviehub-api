@@ -1,7 +1,15 @@
 const CONFIG = {
-    API_BASE_URL: window.location.origin.includes('localhost') ? 'http://localhost:8000' : '',
-    BOT_USERNAME: 'MovieHubAdminBot' // Should ideally fetch from API /
+    // If running on a hosted service like Vercel, we might need to point to the Render backend.
+    // By default, it tries to use the current origin.
+    API_BASE_URL: window.location.origin.includes('localhost') ? 'http://localhost:8000' : 
+                  (window.location.origin.includes('vercel.app') ? 'https://moviehub-api-aswiiz.onrender.com' : ''),
+    BOT_USERNAME: 'MovieHubAdminBot'
 };
+
+// Help detect the actual Render URL if possible, or use a fallback
+if (!CONFIG.API_BASE_URL && !window.location.origin.includes('localhost')) {
+    console.log("Using relative API paths. Ensure backend serves frontend or CORS is handled.");
+}
 
 const elements = {
     searchInput: document.getElementById('search-input'),
@@ -47,11 +55,18 @@ async function performSearch(query) {
         renderResults(data, query);
     } catch (error) {
         console.error('Search error:', error);
+        const fullUrl = `${CONFIG.API_BASE_URL}/search?q=${encodeURIComponent(query)}`;
         elements.resultsGrid.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-exclamation-triangle"></i>
-                <h3>Oops! Something went wrong</h3>
-                <p>Please try again later or check your connection.</p>
+                <h3>Search Failed</h3>
+                <p>Could not reach the backend API.</p>
+                <code style="display:block; margin-top:1rem; font-size:0.8rem; color:#f87171;">
+                    URL: ${fullUrl}
+                </code>
+                <p style="margin-top:1rem; font-size:0.9rem;">
+                    Please ensure your Render backend is active and CORS is allowed.
+                </p>
             </div>
         `;
     } finally {
