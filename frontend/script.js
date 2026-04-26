@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.statusInfo.textContent = `Searching for "${query}"...`;
 
         try {
-            const searchUrl = `${CONFIG.API_BASE_URL}/search?q=${encodeURIComponent(query.trim())}`;
+            const searchUrl = `${CONFIG.API_BASE_URL}/search?query=${encodeURIComponent(query.trim())}`;
             console.log("Fetching from:", searchUrl);
             
             const response = await fetch(searchUrl);
@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderResults(data, query.trim());
         } catch (error) {
             console.error('Search error:', error);
-            const fullUrl = `${CONFIG.API_BASE_URL}/search?q=${encodeURIComponent(query)}`;
+            const fullUrl = `${CONFIG.API_BASE_URL}/search?query=${encodeURIComponent(query)}`;
             elements.resultsGrid.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         URL: ${fullUrl}
                     </code>
                     <p style="margin-top:1rem; font-size:0.9rem;">
-                        Please ensure your Render backend is active and CORS is allowed.
+                        <b>Hint:</b> If you're on Render free tier, the server might be "sleeping". Please wait 30 seconds and try again.
                     </p>
                 </div>
             `;
