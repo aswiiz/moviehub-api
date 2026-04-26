@@ -77,7 +77,15 @@ async def api_info():
     }
 
 # Serve Frontend - Mount at the end to avoid capturing API routes
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+# Try to find 'frontend' directory in current or parent folder (for Render/Vercel support)
+frontend_path = "frontend"
+if not os.path.exists(frontend_path):
+    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
+
+if os.path.exists(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+else:
+    logger.warning(f"Frontend directory not found at {frontend_path}")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

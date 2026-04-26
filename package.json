@@ -2,7 +2,7 @@
   "name": "moviehub",
   "version": "1.0.0",
   "scripts": {
-    "build": "bash build.sh",
-    "vercel-build": "bash build.sh"
+    "build": "echo 'Static Build - No compilation needed'",
+    "vercel-build": "echo 'Static Build - No compilation needed'"
   }
 }
