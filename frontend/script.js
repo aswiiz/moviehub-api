@@ -1,8 +1,6 @@
-const CONFIG = {
-    // If running on a hosted service like Vercel, we might need to point to the Render backend.
-    // By default, it tries to use the current origin.
+    // If running on a hosted service like Vercel, we point to the Render backend.
     API_BASE_URL: window.location.origin.includes('localhost') ? 'http://localhost:8000' : 
-                  (window.location.origin.includes('vercel.app') ? 'https://moviehub-api-aswiiz.onrender.com' : ''),
+                  (window.location.origin.includes('vercel.app') ? 'https://moviehub-api-9qb3.onrender.com' : ''),
     BOT_USERNAME: 'MovieHubAdminBot'
 };
 
