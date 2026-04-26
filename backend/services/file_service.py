@@ -9,7 +9,7 @@ class FileService:
         self.backend_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("BACKEND_URL", "http://localhost:8000")
         # Ensure no trailing slash
         self.backend_url = self.backend_url.rstrip('/')
-        self.bot_username = os.getenv("BOT_USERNAME", "MovieHubAdminBot")
+        self.bot_username = os.getenv("BOT_USERNAME", "greenmoviebot")
 
     def encode_file_id(self, file_id: str) -> str:
         """Encode file_id to be URL-safe for Telegram's start parameter."""
