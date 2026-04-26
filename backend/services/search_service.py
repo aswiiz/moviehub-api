@@ -14,7 +14,7 @@ class SearchService:
         return str(size)
 
     async def search_movies(self, query: str) -> List[Movie]:
-        # Search the flat 'movies' collection and aggregate by title
+        # Search the 'movies' collection (supporting both old nested and new flat schemas)
         pipeline = [
             {
                 "$match": {
@@ -26,15 +26,46 @@ class SearchService:
                 }
             },
             {
+                # Normalize documents: if "files" array exists (old schema), use it.
+                # Otherwise, wrap the flat fields (new schema) into an array.
+                "$project": {
+                    "title": 1,
+                    "file_data": {
+                        "$cond": {
+                            "if": {"$isArray": "$files"},
+                            "then": "$files",
+                            "else": [{
+                                "quality": "$quality",
+                                "file_size": "$file_size",
+                                "size": "$size",
+                                "file_id": "$file_id",
+                                "movie_id": "$movie_id",
+                                "caption": "$caption",
+                                "file_name": "$file_name",
+                                "year": "$year",
+                                "language": "$language",
+                                "season": "$season",
+                                "episode": "$episode"
+                            }]
+                        }
+                    }
+                }
+            },
+            {"$unwind": "$file_data"},
+            {
                 "$group": {
                     "_id": "$title",
                     "files": {
                         "$push": {
-                            "quality": "$quality",
-                            "size": "$file_size",
-                            "movie_id": "$file_id",
-                            "caption": "$caption",
-                            "file_name": "$file_name"
+                            "quality": "$file_data.quality",
+                            "size": { "$ifNull": ["$file_data.file_size", "$file_data.size"] },
+                            "movie_id": { "$ifNull": ["$file_data.file_id", "$file_data.movie_id"] },
+                            "caption": "$file_data.caption",
+                            "file_name": "$file_data.file_name",
+                            "year": "$file_data.year",
+                            "language": "$file_data.language",
+                            "season": "$file_data.season",
+                            "episode": "$file_data.episode"
                         }
                     }
                 }
@@ -51,12 +82,19 @@ class SearchService:
                 MovieFile(
                     quality=f.get("quality", "Unknown"),
                     size=self.format_size(f.get("size", 0)),
-                    movie_id=f.get("movie_id"),
+                    movie_id=f.get("movie_id", "Unknown"),
                     caption=f.get("caption"),
-                    file_name=f.get("file_name")
+                    file_name=f.get("file_name"),
+                    year=f.get("year"),
+                    language=f.get("language"),
+                    season=f.get("season"),
+                    episode=f.get("episode")
                 )
-                for f in doc.get("files", [])
+                for f in doc.get("files", []) if f.get("movie_id") or f.get("file_id") # Filter out empty/invalid pushes
             ]
+
+            if not files:
+                continue
 
             # Sort files by quality (Highest first)
             def quality_rank(q):
@@ -67,7 +105,7 @@ class SearchService:
 
             results.append(Movie(
                 title=doc.get("_id", "Unknown"),
-                imdbID=f"hub_{abs(hash(doc.get('_id', 'Unknown'))) % 10000000}", # Generate deterministic ID based on title
+                imdbID=f"hub_{abs(hash(doc.get('_id', 'Unknown'))) % 10000000}", 
                 files=files
             ))
 
