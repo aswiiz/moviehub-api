@@ -10,16 +10,30 @@ class FileService:
         self.backend_url = self.backend_url.rstrip('/')
 
     async def get_download_link(self, movie_id: str) -> str:
-        # 1. Find the file in the database
-        doc = await db.db.movies.find_one({"files.movie_id": movie_id})
+        # 1. Find the file in the database (supporting both flat and nested schemas)
+        doc = await db.db.movies.find_one({
+            "$or": [
+                {"file_id": movie_id},
+                {"movie_id": movie_id},
+                {"files.file_id": movie_id},
+                {"files.movie_id": movie_id}
+            ]
+        })
+
         if not doc:
             raise Exception("File not found in database")
         
         file_id = None
-        for file in doc.get("files", []):
-            if file.get("movie_id") == movie_id:
-                file_id = file.get("file_id")
-                break
+        
+        # Check if it's a flat document (new schema)
+        if doc.get("file_id") == movie_id or doc.get("movie_id") == movie_id:
+            file_id = doc.get("file_id")
+        else:
+            # Check if it's a nested document (old schema)
+            for file in doc.get("files", []):
+                if file.get("file_id") == movie_id or file.get("movie_id") == movie_id:
+                    file_id = file.get("file_id")
+                    break
         
         if not file_id:
             raise Exception("Telegram file_id not found")
