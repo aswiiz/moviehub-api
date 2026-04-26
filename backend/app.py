@@ -73,7 +73,7 @@ async def api_info():
     return {
         "status": "online", 
         "message": "MovieHub Backend is active",
-        "bot_username": os.getenv("BOT_USERNAME", "MovieHubAdminBot")
+        "bot_username": os.getenv("BOT_USERNAME", "greenmoviebot")
     }
 
 # Serve Frontend - Mount at the end to avoid capturing API routes
