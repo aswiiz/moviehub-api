@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MovieHub | Search & Download</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-play-circle"></i>
+                <h1>Movie<span>Hub</span></h1>
+            </div>
+            <p class="tagline">Search and receive files directly on Telegram</p>
+        </header>
+
+        <main>
+            <div class="search-section">
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="search-input" placeholder="Search movies, series, or keywords..." autocomplete="off">
+                    <button id="search-button">Search</button>
+                </div>
+                <div class="search-suggestions" id="suggestions">
+                    <!-- Suggestions will appear here -->
+                </div>
+            </div>
+
+            <div class="results-section">
+                <div class="status-info" id="status-info">
+                    <!-- Status or count will appear here -->
+                </div>
+                <div class="results-grid" id="results-grid">
+                    <!-- Results will be injected here -->
+                    <div class="empty-state">
+                        <i class="fas fa-film"></i>
+                        <h3>Ready to find your next movie?</h3>
+                        <p>Type something in the search bar above to start.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 MovieHub API System. Built for speed and simplicity.</p>
+            <div class="footer-links">
+                <a href="https://t.me/MovieHubAdminBot" target="_blank"><i class="fab fa-telegram"></i> Telegram Bot</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loader-overlay" id="loader">
+        <div class="loader"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

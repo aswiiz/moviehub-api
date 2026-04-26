@@ -5,6 +5,7 @@ class MovieFile(BaseModel):
     quality: str
     size: str
     movie_id: str # internal ID or file_id
+    telegram_link: Optional[str] = None
     caption: Optional[str] = None
     file_name: Optional[str] = None
     year: Optional[int] = None

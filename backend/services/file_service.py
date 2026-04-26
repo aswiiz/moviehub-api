@@ -1,4 +1,5 @@
 import os
+import base64
 from database.connection import db
 from bson import ObjectId
 
@@ -8,6 +9,26 @@ class FileService:
         self.backend_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("BACKEND_URL", "http://localhost:8000")
         # Ensure no trailing slash
         self.backend_url = self.backend_url.rstrip('/')
+        self.bot_username = os.getenv("BOT_USERNAME", "MovieHubAdminBot")
+
+    def encode_file_id(self, file_id: str) -> str:
+        """Encode file_id to be URL-safe for Telegram's start parameter."""
+        return base64.urlsafe_b64encode(file_id.encode()).decode().rstrip("=")
+
+    def decode_file_id(self, encoded_id: str) -> str:
+        """Decode the encoded file_id from Telegram's start parameter."""
+        try:
+            # Add padding back if missing
+            padding = '=' * (4 - len(encoded_id) % 4)
+            return base64.urlsafe_b64decode(encoded_id + padding).decode()
+        except:
+            return encoded_id  # Fallback to raw if decoding fails
+
+    def get_telegram_link(self, file_id: str) -> str:
+        """Generate a Telegram deep link for the given file_id."""
+        encoded = self.encode_file_id(file_id)
+        return f"https://t.me/{self.bot_username}?start={encoded}"
+
 
     async def get_download_link(self, movie_id: str) -> str:
         # 1. Find the file in the database (supporting both flat and nested schemas)
@@ -38,8 +59,7 @@ class FileService:
         if not file_id:
             raise Exception("Telegram file_id not found")
 
-        # 2. Return the link to our built-in stream route
-        # This follows the VJBots/FileToLink pattern of providing a direct web link
-        return f"{self.backend_url}/dl/{file_id}"
+        # 2. Return the Telegram deep link
+        return self.get_telegram_link(file_id)
 
 file_service = FileService()

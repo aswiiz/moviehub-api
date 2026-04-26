@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/movie.dart';
+import '../services/api_service.dart';
 
 class MovieCard extends StatelessWidget {
   final Movie movie;
@@ -144,11 +145,50 @@ class MovieCard extends StatelessWidget {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 20),
+                const Text("Or Receive via Telegram Bot:", style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: movie.files.map((file) {
+                    return InkWell(
+                      onTap: isLoading ? null : () => _sendToTelegram(file.movieId),
+                      borderRadius: BorderRadius.circular(30),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF24A1DE), Color(0xFF24A1DE)]),
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 8)],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.telegram, color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              file.quality,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+  void _sendToTelegram(String fileId) async {
+    final botUsername = await ApiService().getBotUsername();
+    final url = Uri.parse("https://t.me/$botUsername?start=$fileId");
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 }

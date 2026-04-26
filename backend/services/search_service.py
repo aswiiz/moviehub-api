@@ -1,7 +1,9 @@
 import re
+from datetime import datetime
 from typing import List
 from database.connection import db
 from models.movie import Movie, MovieFile
+from services.file_service import file_service
 
 class SearchService:
     def format_size(self, size):
@@ -14,16 +16,26 @@ class SearchService:
         return str(size)
 
     async def search_movies(self, query: str) -> List[Movie]:
-        # Search the 'movies' collection (supporting both old nested and new flat schemas)
+        # Split query into keywords for better matching (multi-keyword support)
+        keywords = query.split()
+        if not keywords:
+            return []
+            
+        # Match each keyword against title, file_name, or caption
+        match_conditions = []
+        for kw in keywords:
+            escaped_kw = re.escape(kw)
+            match_conditions.append({
+                "$or": [
+                    {"title": {"$regex": escaped_kw, "$options": "i"}},
+                    {"file_name": {"$regex": escaped_kw, "$options": "i"}},
+                    {"caption": {"$regex": escaped_kw, "$options": "i"}}
+                ]
+            })
+
         pipeline = [
             {
-                "$match": {
-                    "$or": [
-                        {"title": {"$regex": query, "$options": "i"}},
-                        {"file_name": {"$regex": query, "$options": "i"}},
-                        {"caption": {"$regex": query, "$options": "i"}}
-                    ]
-                }
+                "$match": {"$and": match_conditions}
             },
             {
                 # Normalize documents: if "files" array exists (old schema), use it.
@@ -92,7 +104,8 @@ class SearchService:
                     year=f.get("year"),
                     language=f.get("language"),
                     season=f.get("season"),
-                    episode=f.get("episode")
+                    episode=f.get("episode"),
+                    telegram_link=file_service.get_telegram_link(f.get("movie_id") or f.get("file_id"))
                 )
                 for f in doc.get("files", []) if f.get("movie_id") or f.get("file_id") # Filter out empty/invalid pushes
             ]

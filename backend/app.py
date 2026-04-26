@@ -2,7 +2,8 @@ import uvicorn
 import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from routes import search, link, stream
 from services.stream_service import stream_service
 from database.connection import db
@@ -67,9 +68,16 @@ app.include_router(search.router)
 app.include_router(link.router)
 app.include_router(stream.router)
 
-@app.get("/")
-async def root():
-    return {"status": "online", "message": "MovieHub Backend is active"}
+@app.get("/api/info")
+async def api_info():
+    return {
+        "status": "online", 
+        "message": "MovieHub Backend is active",
+        "bot_username": os.getenv("BOT_USERNAME", "MovieHubAdminBot")
+    }
+
+# Serve Frontend - Mount at the end to avoid capturing API routes
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

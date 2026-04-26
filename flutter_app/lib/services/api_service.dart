@@ -6,6 +6,22 @@ class ApiService {
   // Update with your local IP
   static const String baseUrl = 'https://moviehub-api-9qb3.onrender.com';
   static const String omdbApiKey = '9547e152';
+  String? _botUsername;
+
+  Future<String> getBotUsername() async {
+    if (_botUsername != null) return _botUsername!;
+    try {
+      final response = await http.get(Uri.parse(baseUrl));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _botUsername = data['bot_username'];
+        return _botUsername ?? 'MovieHubAdminBot';
+      }
+    } catch (e) {
+      print('Error fetching bot username: $e');
+    }
+    return 'MovieHubAdminBot';
+  }
 
   Future<List<Movie>> searchMovies(String query) async {
     try {

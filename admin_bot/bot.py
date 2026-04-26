@@ -1,6 +1,7 @@
 import os
 import re
 import uuid
+import base64
 import asyncio
 import logging
 import aiohttp
@@ -40,6 +41,8 @@ movies_collection = db.movies
 async def init_db():
     await movies_collection.create_index("file_id", unique=True)
     await movies_collection.create_index([("file_name", "text"), ("caption", "text"), ("title", "text")])
+    # For logging and tracking
+    await db.downloads.create_index([("timestamp", -1)])
     logger.info("Database indexes ensured.")
 
 app = Client("admin_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
@@ -121,21 +124,75 @@ def format_size(size):
         size /= 1024.0
     return "Unknown"
 
-@app.on_message(filters.command("start") & filters.user(ADMIN_ID))
+@app.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text(
-        f"👋 **Welcome Admin!**\n\n"
-        "I can index movies and series for your MovieHub app.\n\n"
-        "**Available Commands:**\n"
-        "🚀 `/index [channel]` - Index all files from a public/admin channel\n"
-        "📥 **Forwarding** - Forward files from a private channel to index them silently!\n"
-        "📂 `/list` - List recent indexed movies\n"
-        "🗑 `/delete [file_id]` - Delete a movie file\n"
-        "⚙️ `/stats` - Show database statistics",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Channel Indexing", callback_data="help_index")]
-        ])
-    )
+    if len(message.command) > 1:
+        payload = message.command[1]
+        
+        # Base64 decoding with padding fix
+        try:
+            # Add padding back if missing
+            padding = '=' * (4 - len(payload) % 4)
+            file_id = base64.urlsafe_b64decode(payload + padding).decode()
+        except Exception:
+            # Fallback to raw payload if decoding fails (for backward compatibility)
+            file_id = payload
+        
+        # Try to find file info in DB to give a nice caption
+        file_info = await movies_collection.find_one({"file_id": file_id})
+        caption = file_info.get("caption") if file_info else ""
+        title = file_info.get("title", "Your Movie") if file_info else "Your Movie"
+        
+        try:
+            # Send the file instantly
+            await message.reply_chat_action(enums.ChatAction.UPLOAD_DOCUMENT)
+            await client.send_cached_media(
+                chat_id=message.chat.id,
+                file_id=file_id,
+                caption=caption or f"🎬 **{title}**\n\n@MovieHub",
+                parse_mode=enums.ParseMode.HTML
+            )
+            
+            # Log the download
+            await db.downloads.insert_one({
+                "file_id": file_id,
+                "user_id": message.from_user.id,
+                "username": message.from_user.username,
+                "title": title,
+                "timestamp": datetime.utcnow()
+            })
+            logger.info(f"File {file_id} delivered to user {message.from_user.id}")
+            
+        except Exception as e:
+            logger.error(f"Error sending file {file_id}: {e}")
+            await message.reply_text("❌ **Error: Could not send file.**\nThe file might have been deleted or the ID is invalid.")
+        return
+
+    # No parameter - check if Admin
+    if message.from_user.id == ADMIN_ID:
+        await message.reply_text(
+            f"👋 **Welcome Admin!**\n\n"
+            "I can index movies and series for your MovieHub app.\n\n"
+            "**Available Commands:**\n"
+            "🚀 `/index [channel]` - Index all files from a public/admin channel\n"
+            "📥 **Forwarding** - Forward files from a private channel to index them silently!\n"
+            "📂 `/list` - List recent indexed movies\n"
+            "🗑 `/delete [file_id]` - Delete a movie file\n"
+            "⚙️ `/stats` - Show database statistics",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Channel Indexing", callback_data="help_index")]
+            ])
+        )
+    else:
+        # Regular user welcome
+        await message.reply_text(
+            f"👋 **Welcome to MovieHub!**\n\n"
+            "I can help you get the movies you search for in the app.\n\n"
+            "👉 **Open the app and search for any movie to get started!**",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Open MovieHub Website", url="https://moviehub-api-five.vercel.app/")]
+            ])
+        )
 
 @app.on_message(filters.command("stats") & filters.user(ADMIN_ID))
 async def stats(client, message):
