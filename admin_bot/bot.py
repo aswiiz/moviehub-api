@@ -41,7 +41,8 @@ movies_collection = db.movies
 
 async def init_db():
     await movies_collection.create_index("file_id", unique=True)
-    await movies_collection.create_index([("file_name", "text"), ("caption", "text"), ("title", "text")])
+    await movies_collection.create_index("search_text")
+    await movies_collection.create_index([("file_name", "text"), ("caption", "text"), ("clean_name", "text")])
     # For logging and tracking
     await db.downloads.create_index([("timestamp", -1)])
     logger.info("Database indexes ensured.")
@@ -69,46 +70,40 @@ async def get_imdb_data(title, year=None):
         logger.error(f"OMDb Error: {e}")
     return None
 
+def normalize(text):
+    if not text:
+        return ""
+    text = text.lower()
+    text = re.sub(r"[_\-.]", " ", text)
+    text = re.sub(r"\[.*?\]", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
 def extract_metadata(filename):
-    normalized = re.sub(r'[\._\-]', ' ', str(filename))
-    normalized = re.sub(r'@\w+|www\.\S+|http\S+|t\.me/\S+', '', normalized, flags=re.IGNORECASE)
+    clean_name = normalize(filename)
     
     quality = "HD"
     for q in ["480p", "720p", "1080p", "2160p", "4k", "cam", "hdtv", "web-dl", "bluray"]:
-        if re.search(rf'\b{q}\b', normalized, re.IGNORECASE):
+        if re.search(rf'\b{q}\b', clean_name, re.IGNORECASE):
             quality = q.upper()
             break
             
-    year_match = re.search(r'\b(19|20)\d{2}\b', normalized)
+    year_match = re.search(r'\b(19|20)\d{2}\b', clean_name)
     year = int(year_match.group()) if year_match else None
     
     languages = ["hindi", "english", "tamil", "telugu", "malayalam", "kannada", "bengali", "marathi", "gujarati", "punjabi", "urdu", "korean", "japanese", "spanish", "french"]
     language = "Unknown"
     for lang in languages:
-        if re.search(rf'\b{lang}\b', normalized, re.IGNORECASE):
+        if re.search(rf'\b{lang}\b', clean_name, re.IGNORECASE):
             language = lang.capitalize()
             break
             
-    se_match = re.search(r'\bS(\d{1,2})E(\d{1,2})\b', normalized, re.IGNORECASE)
+    se_match = re.search(r'\bS(\d{1,2})E(\d{1,2})\b', clean_name, re.IGNORECASE)
     season = int(se_match.group(1)) if se_match else None
     episode = int(se_match.group(2)) if se_match else None
     
-    title = normalized
-    if quality != "HD":
-        title = re.sub(rf'\b{quality}\b', '', title, flags=re.IGNORECASE)
-    if year:
-        title = re.sub(rf'\b{year}\b', '', title)
-    if language != "Unknown":
-        title = re.sub(rf'\b{language}\b', '', title, flags=re.IGNORECASE)
-    if se_match:
-        title = re.sub(r'\bS\d{1,2}E\d{1,2}\b', '', title, flags=re.IGNORECASE)
-        
-    title = re.sub(r'\b(mkv|mp4|avi|webm|mp3|flac|wav|m4a)\b', '', title, flags=re.IGNORECASE)
-    title = re.sub(r'[\[\]\(\)\{\}]', '', title)
-    title = ' '.join(title.split()).title()
-    
     return {
-        "title": title,
+        "clean_name": clean_name,
         "quality": quality,
         "year": year,
         "language": language,
@@ -273,14 +268,20 @@ async def perform_index(chat_id, status_msg):
                 final_imdb_id = imdb_data['imdbID'] if imdb_data else f"hub_{abs(hash(meta['title'])) % 10000000}"
                 final_title = imdb_data['title'] if imdb_data else meta['title']
                 
+                # Generate search_text for efficient querying
+                clean_name = meta['clean_name']
+                search_text = clean_name + " " + normalize(caption or "")
+
                 try:
                     await movies_collection.insert_one({
                         "file_id": file_id,
                         "file_name": filename,
+                        "clean_name": clean_name,
+                        "search_text": search_text,
                         "file_size": size,
                         "mime_type": getattr(file, 'mime_type', 'application/octet-stream'),
                         "caption": caption,
-                        "title": final_title,
+                        "title": final_title, # Keep for display
                         "imdbID": final_imdb_id,
                         "quality": meta['quality'],
                         "year": meta['year'] or (imdb_data['year'] if imdb_data else None),
@@ -290,7 +291,12 @@ async def perform_index(chat_id, status_msg):
                         "indexed_at": datetime.utcnow()
                     })
                     count += 1
+                    logger.info(f"Indexed: {filename} (search_text: {search_text})")
                 except DuplicateKeyError:
+                    skipped += 1
+                    logger.debug(f"Skipped (Duplicate): {filename}")
+                except Exception as insert_e:
+                    logger.error(f"Error inserting {filename}: {insert_e}")
                     skipped += 1
                     
                 if count % 20 == 0:
@@ -353,10 +359,16 @@ async def process_single_file(message: Message, auto_index=False):
     final_imdb_id = imdb_data['imdbID'] if imdb_data else f"hub_{abs(hash(meta['title'])) % 10000000}"
     final_title = imdb_data['title'] if imdb_data else meta['title']
 
+    # Generate search_text for efficient querying
+    clean_name = meta['clean_name']
+    search_text = clean_name + " " + normalize(caption or "")
+
     try:
         await movies_collection.insert_one({
             "file_id": file_id,
             "file_name": filename,
+            "clean_name": clean_name,
+            "search_text": search_text,
             "file_size": size,
             "mime_type": getattr(file, 'mime_type', 'application/octet-stream'),
             "caption": caption,

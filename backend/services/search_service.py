@@ -4,6 +4,7 @@ from typing import List
 from database.connection import db
 from models.movie import Movie, MovieFile
 from services.file_service import file_service
+from utils import normalize
 
 class SearchService:
     def format_size(self, size):
@@ -15,23 +16,19 @@ class SearchService:
             size /= 1024.0
         return str(size)
 
-    async def search_movies(self, query: str) -> List[Movie]:
+    async def search_movies(self, query: str, limit: int = 20, offset: int = 0) -> List[Movie]:
         # Split query into keywords for better matching (multi-keyword support)
-        keywords = query.split()
-        if not keywords:
+        words = normalize(query).split()
+        if not words:
             return []
             
-        # Match each keyword against title, file_name, or caption
-        match_conditions = []
-        for kw in keywords:
-            escaped_kw = re.escape(kw)
-            match_conditions.append({
-                "$or": [
-                    {"title": {"$regex": escaped_kw, "$options": "i"}},
-                    {"file_name": {"$regex": escaped_kw, "$options": "i"}},
-                    {"caption": {"$regex": escaped_kw, "$options": "i"}}
-                ]
-            })
+        print(f"Search query: '{query}' -> keywords: {words}")
+            
+        # Match each keyword against search_text
+        match_conditions = [
+            {"search_text": {"$regex": re.escape(word), "$options": "i"}}
+            for word in words
+        ]
 
         pipeline = [
             {
@@ -87,7 +84,9 @@ class SearchService:
                     }
                 }
             },
-            {"$sort": {"_id": 1}}
+            {"$sort": {"_id": 1}},
+            {"$skip": offset},
+            {"$limit": limit}
         ]
         
         cursor = db.db.movies.aggregate(pipeline)
@@ -128,6 +127,11 @@ class SearchService:
                 files=files
             ))
 
+        if not results:
+            print(f"No results found for query: {words}")
+            return []
+
+        print(f"Found {len(results)} movies for query: {words}")
         return results
 
 search_service = SearchService()

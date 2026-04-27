@@ -35,18 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function performSearch(query) {
-        console.log("Search triggered for:", query);
-        if (!query || query.trim().length < 2) {
-            console.warn("Query too short");
+        const cleanQuery = query.trim().toLowerCase();
+        if (!cleanQuery || cleanQuery.length < 2) {
+            console.warn("Query too short or empty");
             return;
         }
 
         showLoader(true);
         elements.resultsGrid.innerHTML = '';
-        elements.statusInfo.textContent = `Searching for "${query}"...`;
+        elements.statusInfo.textContent = `Searching for "${cleanQuery}"...`;
 
         try {
-            const searchUrl = `${CONFIG.API_BASE_URL}/search?query=${encodeURIComponent(query.trim())}`;
+            const searchUrl = `${CONFIG.API_BASE_URL}/search?query=${encodeURIComponent(cleanQuery)}`;
             console.log("Fetching from:", searchUrl);
             
             const response = await fetch(searchUrl);

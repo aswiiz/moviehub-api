@@ -24,8 +24,9 @@ class ApiService {
   }
 
   Future<List<Movie>> searchMovies(String query) async {
+    final cleanQuery = query.trim().toLowerCase();
     try {
-      final response = await http.get(Uri.parse('$baseUrl/search?query=${Uri.encodeComponent(query)}'));
+      final response = await http.get(Uri.parse('$baseUrl/search?query=${Uri.encodeComponent(cleanQuery)}'));
 
       if (response.statusCode == 200) {
         List jsonResponse = json.decode(response.body);
