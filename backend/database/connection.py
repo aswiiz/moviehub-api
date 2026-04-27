@@ -13,7 +13,9 @@ class Database:
     @classmethod
     async def connect_db(cls):
         cls.client = AsyncIOMotorClient(MONGO_URI)
-        cls.db = cls.client['moviehub'] # Explicitly setting the DB name
+        cls.db = cls.client['moviehub']
+        # Verify connection
+        await cls.client.admin.command('ping')
 
     @classmethod
     async def close_db(cls):

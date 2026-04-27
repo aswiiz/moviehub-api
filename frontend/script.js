@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const CONFIG = {
         API_BASE_URL: window.location.origin.includes('localhost') ? 'http://localhost:8000' : 
-                      (window.location.origin.includes('vercel.app') ? 'https://moviehub-api-9qb3.onrender.com' : ''),
+                      (window.location.origin.includes('onrender.com') ? '' : 'https://moviehub-api-9qb3.onrender.com'),
         BOT_USERNAME: 'greenmoviebot'
     };
 
