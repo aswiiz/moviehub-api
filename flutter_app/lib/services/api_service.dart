@@ -11,16 +11,16 @@ class ApiService {
   Future<String> getBotUsername() async {
     if (_botUsername != null) return _botUsername!;
     try {
-      final response = await http.get(Uri.parse(baseUrl));
+      final response = await http.get(Uri.parse('$baseUrl/api/info'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         _botUsername = data['bot_username'];
-        return _botUsername ?? 'MovieHubAdminBot';
+        return _botUsername ?? 'greenmoviebot';
       }
     } catch (e) {
       print('Error fetching bot username: $e');
     }
-    return 'MovieHubAdminBot';
+    return 'greenmoviebot';
   }
 
   Future<List<Movie>> searchMovies(String query) async {

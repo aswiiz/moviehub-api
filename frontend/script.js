@@ -102,7 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <a href="https://t.me/${CONFIG.BOT_USERNAME}?start=${encodeFileId(file.movie_id)}" 
                        class="download-btn" 
-                       target="_blank"
                        title="Get file on Telegram">
                         <i class="fas fa-download"></i>
                     </a>
