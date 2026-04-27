@@ -36,7 +36,7 @@ if not API_ID or not API_HASH or not BOT_TOKEN:
 
 # Database setup
 client = AsyncIOMotorClient(MONGO_URI)
-db = client.get_default_database()
+db = client['moviehub']
 movies_collection = db.movies
 
 async def init_db():
