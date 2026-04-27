@@ -59,7 +59,8 @@ class FileService:
         if not file_id:
             raise Exception("Telegram file_id not found")
 
-        # 2. Return the Telegram deep link
-        return self.get_telegram_link(file_id)
+        # 2. Return the Telegram deep link using the document's _id (to stay under 64 chars)
+        link_id = str(doc.get("_id")) if doc.get("_id") else file_id
+        return self.get_telegram_link(link_id)
 
 file_service = FileService()

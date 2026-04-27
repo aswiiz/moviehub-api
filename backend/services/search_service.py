@@ -59,7 +59,8 @@ class SearchService:
                                 "language": "$language",
                                 "season": "$season",
                                 "episode": "$episode",
-                                "imdbID": "$imdbID"
+                                "imdbID": "$imdbID",
+                                "_id": "$_id"
                             }]
                         }
                     }
@@ -75,7 +76,7 @@ class SearchService:
                         "$push": {
                             "quality": "$file_data.quality",
                             "size": { "$ifNull": ["$file_data.file_size", "$file_data.size"] },
-                            "movie_id": { "$ifNull": ["$file_data.file_id", "$file_data.movie_id"] },
+                            "movie_id": { "$convert": { "input": "$file_data._id", "to": "string" } },
                             "caption": "$file_data.caption",
                             "file_name": "$file_data.file_name",
                             "year": "$file_data.year",

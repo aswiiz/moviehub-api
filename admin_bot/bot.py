@@ -11,6 +11,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 from pyrogram.errors import FloodWait
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import DuplicateKeyError
+from bson import ObjectId, errors
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -138,8 +139,23 @@ async def start(client, message):
             # Fallback to raw payload if decoding fails (for backward compatibility)
             file_id = payload
         
-        # Try to find file info in DB to give a nice caption
+        # Try to find file info in DB (by file_id or ObjectId)
         file_info = await movies_collection.find_one({"file_id": file_id})
+        
+        if not file_info:
+            try:
+                # Try lookup by ObjectId if it's a valid 24-char hex
+                if len(file_id) == 24:
+                    file_info = await movies_collection.find_one({"_id": ObjectId(file_id)})
+            except (errors.InvalidId, TypeError):
+                pass
+
+        if file_info:
+            # Use the actual file_id from the database for sending
+            real_file_id = file_info.get("file_id")
+        else:
+            real_file_id = file_id # Fallback
+            
         caption = file_info.get("caption") if file_info else ""
         title = file_info.get("title", "Your Movie") if file_info else "Your Movie"
         
@@ -148,7 +164,7 @@ async def start(client, message):
             await message.reply_chat_action(enums.ChatAction.UPLOAD_DOCUMENT)
             await client.send_cached_media(
                 chat_id=message.chat.id,
-                file_id=file_id,
+                file_id=real_file_id,
                 caption=caption or f"🎬 **{title}**\n\n@MovieHub",
                 parse_mode=enums.ParseMode.HTML
             )
